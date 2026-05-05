@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: scaletestapp-service
+spec:
+  type: NodePort  # вместо ClusterIP
+  selector:
+    app: scaletestapp
+  ports:
+  - port: 80
+    targetPort: 8080
+    nodePort: 30080  # опционально, диапазон 30000-32767
