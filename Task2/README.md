@@ -5,56 +5,36 @@
 ### 1. Подготовка кластера
 
 ```bash
-minikube start
+minikube delete --all --purge
+
+minikube start --driver=docker
 minikube addons enable metrics-server # включаем metrics-server для сбора метрик, которые будет читать HPA
+kubectl get pods -n kube-system | findstr metrics-server
+kubectl top nodes
 ```
 
-```bash
-
-```
-
-Запуск на Windows с Docker
-
-> `metrics-server` не может подключиться к kubelet из-за проблем с сертификатами в Minikube + Docker на Windows.
+Запуск через Kubernetes на Docker Desktop
 
 ```bash
-# 1. Тянем конкретный тег (latest часто битый)
-docker pull bitnamilegacy/metrics-server:0.7.1
+Переключите контекст kubectl на встроенный кластер Docker Desktop:
+kubectl config use-context docker-desktop
+#Как включить metrics-server в Docker Desktop:
 
-# 2. Если скачался — грузим в Minikube и патчим
-minikube image load bitnamilegacy/metrics-server:0.7.1
-kubectl patch deployment metrics-server -n kube-system --type='json' -p='[
-  {"op":"replace","path":"/spec/template/spec/containers/0/image","value":"bitnamilegacy/metrics-server:0.7.1"},
-  {"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"},
-  {"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-preferred-address-types=InternalIP,Hostname"}
-]'
-# 2. Примените манифест
-kubectl apply -f metrics-server-local.yaml
+# 1. Скачайте манифест последней версии
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 
-# 4. Перезапускаем и ждём
-kubectl rollout restart deployment metrics-server -n kube-system
-sleep 30
-kubectl get pods -n kube-system | grep metrics-server
-kubectl top pods
+# 2. Добавьте аргумент --kubelet-insecure-tls (обязательно для Docker Desktop)
+kubectl patch deployment metrics-server -n kube-system --type "json" \
+  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+
+#Проверка
+
+kubectl wait --for=condition=Ready pod -l k8s-app=metrics-server -n kube-system --timeout=120s
+kubectl top nodes
+kubectl top pods -A
 
 
-Проблема в недостаточных RBAC-правах у metrics-server. Сервис не может создать subjectaccessreviews для авторизации запросов к kubelet.
 
-# 1. Добавляем недостающее правило для authorization.k8s.io
-kubectl patch clusterrole system:metrics-server --type='json' -p='[
-  {"op":"add","path":"/rules/-","value":{
-    "apiGroups":["authorization.k8s.io"],
-    "resources":["subjectaccessreviews"],
-    "verbs":["create"]
-  }}
-]'
-
-# 2. Перезапускаем metrics-server
-kubectl rollout restart deployment metrics-server -n kube-system
-
-# 3. Ждём и проверяем
-sleep 30
-kubectl top pods
 ```
 
 ### 2. Деплой приложения и HPA
