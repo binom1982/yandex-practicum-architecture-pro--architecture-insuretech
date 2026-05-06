@@ -34,6 +34,16 @@ kubectl top nodes
 kubectl top pods -A
 
 
+Проблема — нестабильный доступ к k8s.gcr.io / registry.k8s.io из РФ. Слои начинают скачиваться, но обрываются.
+Решение: локальный образ + правка манифеста
+Шаг 1. Скачайте образ через доступное зеркало
+
+# Китайское зеркало (работает стабильнее)
+docker pull registry.cn-hangzhou.aliyuncs.com/google_containers/metrics-server:v0.8.1
+
+# Перетегируйте под ожидаемый путь
+docker tag registry.cn-hangzhou.aliyuncs.com/google_containers/metrics-server:v0.8.1 `
+  registry.k8s.io/metrics-server/metrics-server:v0.8.1
 
 ```
 
@@ -49,12 +59,17 @@ kubectl apply -f hpa-memory.yaml
 
 ```bash
 minikube service scaletestapp-service --url
+
+kubectl port-forward service/scaletestapp-service 8080:80
+kubectl get service scaletestapp-service
+
+
 ```
 
 ### 4. Запуск нагрузки (в соседнем терминале)
 
 ```bash
-locust --host=<URL_ИЗ_ШАГА_3> # locust --host=http://127.0.0.1:64211
+locust --host=<URL_ИЗ_ШАГА_3> # locust --host http://localhost:8080
 
 
 MINIKUBE_IP=$(minikube ip)
