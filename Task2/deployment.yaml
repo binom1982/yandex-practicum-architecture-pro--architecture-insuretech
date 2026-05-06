@@ -11,6 +11,10 @@ spec:
     metadata:
       labels:
         app: scaletestapp
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
       - name: scaletestapp
@@ -18,5 +22,7 @@ spec:
         ports:
         - containerPort: 8080
         resources:
+          requests:
+            memory: "20Mi"
           limits:
             memory: "30Mi"

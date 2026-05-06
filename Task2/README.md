@@ -70,7 +70,7 @@ kubectl get service scaletestapp-service
 
 ```bash
 locust --host=<URL_ИЗ_ШАГА_3> # locust --host http://localhost:8080
-
+locust --headless -u 500 -r 50 --run-time 120s --host http://localhost:8080 # нагрузить
 
 MINIKUBE_IP=$(minikube ip)
 locust --host=http://$MINIKUBE_IP:30080
@@ -86,10 +86,33 @@ minikube dashboard # После запуска откроется страниц
 
 ## Часть 2. Динамическая маршрутизация на основании показателей количества запросов в секунду
 
-## 5. Для Части 2: установите Prometheus и prometheus-adapter, затем:
+1. Установка Prometheus и адаптера метрик
 
 ```bash
-kubectl apply -f hpa-rps.yaml
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+
+# Установка Prometheus (только сервер)
+helm install prometheus prometheus-community/prometheus \
+  --set alertmanager.enabled=false \
+  --set pushgateway.enabled=false \
+  --set nodeExporter.enabled=false \
+  --set server.persistentVolume.enabled=false
+
+# Установка адаптера для кастомных метрик
+helm install prometheus-adapter prometheus-community/prometheus-adapter
 ```
 
-Запустите Locust повторно для проверки масштабирования по RPS.
+2. Применение манифестов
+
+```bash
+kubectl apply -f Task2/deployment.yaml
+kubectl apply -f Task2/service.yaml
+kubectl apply -f Task2/hpa-rps.yaml
+```
+
+3. Проверка метрик в Prometheus
+
+```bash
+kubectl port-forward svc/prometheus-server 9090:80
+```
